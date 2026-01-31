@@ -22,6 +22,7 @@ interface FoodLog {
   carbs: number;
   fat: number;
   meal_time: string;
+  meal_category: string;
 }
 
 export default function FoodScreen() {
@@ -197,6 +198,14 @@ Be specific about the dish name if you recognize it (e.g., "Chicken Biryani" not
     }
   };
 
+  const getMealCategory = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return 'Breakfast';
+    if (hour >= 12 && hour < 17) return 'Lunch';
+    if (hour >= 17 && hour < 22) return 'Dinner';
+    return 'Snack';
+  };
+
   const handleSaveMeal = async () => {
     if (!mealName || !calories) {
       Alert.alert('Error', 'Please enter at least meal name and calories');
@@ -212,6 +221,8 @@ Be specific about the dish name if you recognize it (e.g., "Chicken Biryani" not
       return;
     }
 
+    const mealCategory = getMealCategory();
+
     const { error } = await supabase.from('food_logs').insert({
       user_id: user.id,
       meal_name: mealName,
@@ -219,6 +230,7 @@ Be specific about the dish name if you recognize it (e.g., "Chicken Biryani" not
       protein: parseFloat(protein) || 0,
       carbs: parseFloat(carbs) || 0,
       fat: parseFloat(fat) || 0,
+      meal_category: mealCategory,
     });
 
     setLoading(false);
@@ -226,7 +238,7 @@ Be specific about the dish name if you recognize it (e.g., "Chicken Biryani" not
     if (error) {
       Alert.alert('Error', error.message);
     } else {
-      Alert.alert('Success', 'Meal logged!');
+      Alert.alert('Success', `${mealCategory} logged!`);
       // Clear form
       setMealName('');
       setCalories('');
@@ -241,6 +253,14 @@ Be specific about the dish name if you recognize it (e.g., "Chicken Biryani" not
 
   const totalCalories = foodLogs.reduce((sum, log) => sum + log.calories, 0);
   const totalProtein = foodLogs.reduce((sum, log) => sum + log.protein, 0);
+
+  // Group meals by category
+  const groupedMeals = {
+    Breakfast: foodLogs.filter(log => log.meal_category === 'Breakfast'),
+    Lunch: foodLogs.filter(log => log.meal_category === 'Lunch'),
+    Dinner: foodLogs.filter(log => log.meal_category === 'Dinner'),
+    Snack: foodLogs.filter(log => log.meal_category === 'Snack' || !log.meal_category),
+  };
 
   return (
     <ScrollView style={styles.container}>
@@ -353,23 +373,103 @@ Be specific about the dish name if you recognize it (e.g., "Chicken Biryani" not
         ) : foodLogs.length === 0 ? (
           <Text style={styles.emptyText}>No meals logged yet today</Text>
         ) : (
-          foodLogs.map((log) => (
-            <View key={log.id} style={styles.logCard}>
-              <Text style={styles.logMealName}>{log.meal_name}</Text>
-              <View style={styles.logDetails}>
-                <Text style={styles.logCalories}>{log.calories} cal</Text>
-                <Text style={styles.logMacros}>
-                  P: {log.protein}g | C: {log.carbs}g | F: {log.fat}g
-                </Text>
+          <>
+            {/* Breakfast */}
+            {groupedMeals.Breakfast.length > 0 && (
+              <View style={styles.mealCategory}>
+                <Text style={styles.categoryTitle}>🍳 Breakfast</Text>
+                {groupedMeals.Breakfast.map((log) => (
+                  <View key={log.id} style={styles.logCard}>
+                    <Text style={styles.logMealName}>{log.meal_name}</Text>
+                    <View style={styles.logDetails}>
+                      <Text style={styles.logCalories}>{log.calories} cal</Text>
+                      <Text style={styles.logMacros}>
+                        P: {log.protein}g | C: {log.carbs}g | F: {log.fat}g
+                      </Text>
+                    </View>
+                    <Text style={styles.logTime}>
+                      {new Date(log.meal_time).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </Text>
+                  </View>
+                ))}
               </View>
-              <Text style={styles.logTime}>
-                {new Date(log.meal_time).toLocaleTimeString([], { 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
-                })}
-              </Text>
-            </View>
-          ))
+            )}
+
+            {/* Lunch */}
+            {groupedMeals.Lunch.length > 0 && (
+              <View style={styles.mealCategory}>
+                <Text style={styles.categoryTitle}>🥗 Lunch</Text>
+                {groupedMeals.Lunch.map((log) => (
+                  <View key={log.id} style={styles.logCard}>
+                    <Text style={styles.logMealName}>{log.meal_name}</Text>
+                    <View style={styles.logDetails}>
+                      <Text style={styles.logCalories}>{log.calories} cal</Text>
+                      <Text style={styles.logMacros}>
+                        P: {log.protein}g | C: {log.carbs}g | F: {log.fat}g
+                      </Text>
+                    </View>
+                    <Text style={styles.logTime}>
+                      {new Date(log.meal_time).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Dinner */}
+            {groupedMeals.Dinner.length > 0 && (
+              <View style={styles.mealCategory}>
+                <Text style={styles.categoryTitle}>🍽️ Dinner</Text>
+                {groupedMeals.Dinner.map((log) => (
+                  <View key={log.id} style={styles.logCard}>
+                    <Text style={styles.logMealName}>{log.meal_name}</Text>
+                    <View style={styles.logDetails}>
+                      <Text style={styles.logCalories}>{log.calories} cal</Text>
+                      <Text style={styles.logMacros}>
+                        P: {log.protein}g | C: {log.carbs}g | F: {log.fat}g
+                      </Text>
+                    </View>
+                    <Text style={styles.logTime}>
+                      {new Date(log.meal_time).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Snacks */}
+            {groupedMeals.Snack.length > 0 && (
+              <View style={styles.mealCategory}>
+                <Text style={styles.categoryTitle}>🍿 Snacks</Text>
+                {groupedMeals.Snack.map((log) => (
+                  <View key={log.id} style={styles.logCard}>
+                    <Text style={styles.logMealName}>{log.meal_name}</Text>
+                    <View style={styles.logDetails}>
+                      <Text style={styles.logCalories}>{log.calories} cal</Text>
+                      <Text style={styles.logMacros}>
+                        P: {log.protein}g | C: {log.carbs}g | F: {log.fat}g
+                      </Text>
+                    </View>
+                    <Text style={styles.logTime}>
+                      {new Date(log.meal_time).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </>
         )}
       </View>
     </ScrollView>
@@ -490,6 +590,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: 20,
     marginBottom: 20,
+  },
+  mealCategory: {
+    marginBottom: 20,
+  },
+  categoryTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#333',
   },
   emptyText: {
     textAlign: 'center',
