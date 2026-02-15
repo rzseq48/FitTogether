@@ -49,3 +49,48 @@ Join our community of developers creating universal apps.
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
 Day 1: Built authentication and food tracking
+
+## ML pipeline (food model)
+
+Train and evaluate the model with the modular pipeline:
+
+```bash
+python3 scripts/ml/main.py \
+  --data-dir "test_images/Indian Food Images" \
+  --epochs 15 \
+  --batch-size 32 \
+  --seed 42
+```
+
+Available useful flags:
+
+- `--freeze-policy {all_backbone,last_blocks,full_finetune}`
+- `--disable-amp`
+- `--disable-dedup`
+- `--output-dir ml_model`
+
+The run writes artifacts to `ml_model/`, including:
+
+- `food_model.pth` (legacy checkpoint)
+- `labels.json`
+- `nutrition_map.json`
+- `model_bundle.pt` (new packaged artifact)
+- `training_history.json`
+- `metrics_summary.json`
+- `per_class_metrics.csv`
+- `confusion_matrix.csv`
+
+Inference usage:
+
+```python
+from scripts.ml.infer import FoodPredictor
+
+predictor = FoodPredictor()
+print(predictor.predict_for_chatbot("photo.jpg"))
+```
+
+Legacy import remains supported:
+
+```python
+from scripts.ml_pipeline import FoodPredictor
+```
