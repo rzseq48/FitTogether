@@ -1,11 +1,4 @@
-"""Backward-compatible entrypoint for FitTogether ML pipeline.
 
-Preferred entrypoint:
-    python3 scripts/ml/main.py
-
-Legacy compatibility:
-    from scripts.ml_pipeline import FoodPredictor
-"""
 
 try:
     from scripts.ml.infer import FoodPredictor
