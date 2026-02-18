@@ -103,6 +103,3 @@ def seed_everything(seed: int) -> None:
     except Exception:
         pass
 
-def this_function():
-    #waiting to see what this function does for us late
-    return None
