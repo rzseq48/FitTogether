@@ -7,9 +7,9 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
 
-from PIL import Image
 import torch
-from torch.utils.data import DataLoader, Dataset
+from PIL import Image
+from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 from torchvision import transforms
 
 try:
@@ -19,6 +19,8 @@ except ImportError:  # pragma: no cover
 
 ImageSample = Tuple[Path, int]
 
+
+# ── Directory / file helpers ──────────────────────────────────────────────────
 
 def _resolve_data_dir(base: Path) -> Path:
     current = base
@@ -65,6 +67,8 @@ def _label_from_filename(image_path: Path) -> str:
     return stem
 
 
+# ── Label map / sample builders ───────────────────────────────────────────────
+
 def build_label_map_and_samples(
     structure: str, items: Sequence[Path]
 ) -> Tuple[Dict[str, int], List[ImageSample]]:
@@ -84,6 +88,8 @@ def build_label_map_and_samples(
     return label_map, samples
 
 
+# ── Deduplication ─────────────────────────────────────────────────────────────
+
 def deduplicate_samples(
     samples: Sequence[ImageSample],
 ) -> Tuple[List[ImageSample], List[dict], Dict[Path, str]]:
@@ -100,13 +106,7 @@ def deduplicate_samples(
             hash_to_primary[digest] = path
             deduped.append((path, label))
             continue
-        duplicates.append(
-            {
-                "duplicate": str(path),
-                "kept": str(existing),
-                "sha1": digest,
-            }
-        )
+        duplicates.append({"duplicate": str(path), "kept": str(existing), "sha1": digest})
 
     return deduped, duplicates, sample_hashes
 
@@ -121,6 +121,8 @@ def _file_sha1(path: Path, chunk_size: int = 1024 * 1024) -> str:
             hasher.update(chunk)
     return hasher.hexdigest()
 
+
+# ── Stratified split ──────────────────────────────────────────────────────────
 
 def stratified_split(
     samples: Sequence[ImageSample], val_split: float, test_split: float, seed: int
@@ -184,6 +186,8 @@ def validate_no_split_leakage(
         raise RuntimeError("Data leakage detected between val and test splits")
 
 
+# ── Dataset ───────────────────────────────────────────────────────────────────
+
 class FoodDataset(Dataset):
     def __init__(self, samples: Sequence[ImageSample], image_size: int, transform=None):
         self.samples = list(samples)
@@ -204,26 +208,97 @@ class FoodDataset(Dataset):
         return img, label
 
 
-def build_transforms(image_size: int):
-    train_tf = transforms.Compose(
-        [
-            transforms.Resize((image_size + 24, image_size + 24)),
-            transforms.RandomCrop(image_size),
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-        ]
-    )
+# ── Transforms ────────────────────────────────────────────────────────────────
+
+def build_transforms(
+    image_size: int,
+    randaugment_magnitude: int = 8,
+    random_erasing_prob: float = 0.25,
+):
+    """
+    Train transform:
+      Resize → RandomCrop → HFlip → RandAugment → ToTensor → Normalize → RandomErasing
+
+    RandAugment (magnitude=8) applies a random selection of photometric /
+    geometric ops each batch — much stronger than fixed ColorJitter alone.
+    RandomErasing randomly occludes a patch, improving occlusion robustness.
+
+    Eval transform: centre-crop only (no stochastic ops).
+    """
+    normalize = transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+
+    train_ops = [
+        transforms.Resize((image_size + 32, image_size + 32)),
+        transforms.RandomCrop(image_size),
+        transforms.RandomHorizontalFlip(p=0.5),
+    ]
+
+    if randaugment_magnitude > 0:
+        # num_ops=2, magnitude in [1, 31]
+        train_ops.append(transforms.RandAugment(num_ops=2, magnitude=randaugment_magnitude))
+
+    train_ops += [transforms.ToTensor(), normalize]
+
+    if random_erasing_prob > 0:
+        train_ops.append(
+            transforms.RandomErasing(
+                p=random_erasing_prob,
+                scale=(0.02, 0.20),
+                ratio=(0.3, 3.3),
+                value="random",
+            )
+        )
+
+    train_tf = transforms.Compose(train_ops)
+
     eval_tf = transforms.Compose(
         [
-            transforms.Resize((image_size, image_size)),
+            transforms.Resize((image_size + 32, image_size + 32)),
+            transforms.CenterCrop(image_size),
             transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+            normalize,
         ]
     )
-    return train_tf, eval_tf
 
+    # TTA transform: same as eval but with a horizontal flip — averaged at
+    # inference time by FoodPredictor.
+    tta_tf = transforms.Compose(
+        [
+            transforms.Resize((image_size + 32, image_size + 32)),
+            transforms.RandomCrop(image_size),
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1),
+            transforms.ToTensor(),
+            normalize,
+        ]
+    )
+
+    return train_tf, eval_tf, tta_tf
+
+
+# ── Weighted sampler ──────────────────────────────────────────────────────────
+
+def make_weighted_sampler(samples: Sequence[ImageSample]) -> WeightedRandomSampler:
+    """
+    Builds a WeightedRandomSampler so that each class is sampled equally
+    regardless of its raw frequency — helps with class imbalance.
+    """
+    label_counts: Dict[int, int] = defaultdict(int)
+    for _, label in samples:
+        label_counts[label] += 1
+
+    total = len(samples)
+    class_weights = {cls: total / count for cls, count in label_counts.items()}
+    sample_weights = [class_weights[label] for _, label in samples]
+
+    return WeightedRandomSampler(
+        weights=sample_weights,
+        num_samples=total,
+        replacement=True,
+    )
+
+
+# ── DataLoaders ───────────────────────────────────────────────────────────────
 
 def build_loaders(
     cfg: MLConfig,
@@ -231,15 +306,33 @@ def build_loaders(
     val_samples: Sequence[ImageSample],
     test_samples: Sequence[ImageSample],
 ):
-    train_tf, eval_tf = build_transforms(cfg.image_size)
-
-    train_loader = DataLoader(
-        FoodDataset(train_samples, image_size=cfg.image_size, transform=train_tf),
-        batch_size=cfg.batch_size,
-        shuffle=True,
-        num_workers=cfg.num_workers,
-        pin_memory=torch.cuda.is_available(),
+    train_tf, eval_tf, _ = build_transforms(
+        cfg.image_size,
+        randaugment_magnitude=cfg.randaugment_magnitude,
+        random_erasing_prob=cfg.random_erasing_prob,
     )
+
+    train_dataset = FoodDataset(train_samples, image_size=cfg.image_size, transform=train_tf)
+
+    # Weighted sampler replaces shuffle=True — gives balanced class exposure.
+    if cfg.weighted_sampling:
+        sampler = make_weighted_sampler(train_samples)
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=cfg.batch_size,
+            sampler=sampler,          # mutually exclusive with shuffle
+            num_workers=cfg.num_workers,
+            pin_memory=torch.cuda.is_available(),
+        )
+    else:
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=cfg.batch_size,
+            shuffle=True,
+            num_workers=cfg.num_workers,
+            pin_memory=torch.cuda.is_available(),
+        )
+
     val_loader = DataLoader(
         FoodDataset(val_samples, image_size=cfg.image_size, transform=eval_tf),
         batch_size=cfg.batch_size,
@@ -256,6 +349,8 @@ def build_loaders(
     )
     return train_loader, val_loader, test_loader
 
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
 
 def save_duplicates_log(path: Path, duplicates: Sequence[dict]) -> None:
     with path.open("w", encoding="utf-8") as f:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import torch
 from PIL import Image
@@ -26,6 +26,7 @@ class FoodPredictor:
         labels_path: Optional[Path] = None,
         nutrition_path: Optional[Path] = None,
         bundle_path: Optional[Path] = None,
+        tta_passes: Optional[int] = None,
     ):
         cfg = MLConfig()
         self.device = cfg.device
@@ -35,6 +36,9 @@ class FoodPredictor:
         self.nutrition_path = Path(nutrition_path) if nutrition_path else cfg.nutrition_path
         self.bundle_path = Path(bundle_path) if bundle_path else cfg.bundle_path
 
+        # Allow overriding TTA passes at load time; fall back to config.
+        self.tta_passes = tta_passes if tta_passes is not None else cfg.tta_passes
+
         self.labels = self._load_labels()
         with self.nutrition_path.open("r", encoding="utf-8") as f:
             self.nutrition: Dict[str, dict] = json.load(f)
@@ -43,16 +47,21 @@ class FoodPredictor:
         checkpoint = self._load_checkpoint()
         self.model.load_state_dict(checkpoint["model_state"])
         self.model.eval()
+        self.model.to(self.device)
 
-        _, self.transform = build_transforms(cfg.image_size)
-        print(f"FoodPredictor loaded with {len(self.labels)} classes")
+        _, self.eval_transform, self.tta_transform = build_transforms(cfg.image_size)
+        print(
+            f"FoodPredictor loaded — {len(self.labels)} classes, "
+            f"TTA passes={self.tta_passes}"
+        )
+
+    # ── Loaders ───────────────────────────────────────────────────────────────
 
     def _load_labels(self) -> Dict[str, str]:
         if self.bundle_path.exists():
             bundle = torch.load(self.bundle_path, map_location="cpu")
             if "idx_to_label" in bundle:
                 return {str(k): v for k, v in bundle["idx_to_label"].items()}
-
         with self.labels_path.open("r", encoding="utf-8") as f:
             return json.load(f)
 
@@ -63,13 +72,41 @@ class FoodPredictor:
                 return bundle
         return torch.load(self.model_path, map_location=self.device)
 
-    def predict(self, image_path: str, top_k: int = 3):
-        img = Image.open(image_path).convert("RGB")
-        tensor = self.transform(img).unsqueeze(0).to(self.device)
+    # ── Core inference ────────────────────────────────────────────────────────
 
+    def _image_to_probs(self, img: Image.Image) -> torch.Tensor:
+        """
+        Returns averaged probability tensor over TTA passes.
+
+        Pass 1:  deterministic centre-crop (eval_transform)
+        Pass 2…N: random crop + random flip + slight colour jitter (tta_transform)
+
+        Averaging multiple stochastic views of the same image reduces variance
+        and consistently improves top-1 accuracy by ~1-2%.
+        """
+        tensors: List[torch.Tensor] = []
+
+        # First pass: deterministic eval crop
+        t = self.eval_transform(img).unsqueeze(0).to(self.device)
+        tensors.append(t)
+
+        # Additional TTA passes with random augmentation
+        for _ in range(self.tta_passes - 1):
+            t = self.tta_transform(img).unsqueeze(0).to(self.device)
+            tensors.append(t)
+
+        batch = torch.cat(tensors, dim=0)   # (tta_passes, C, H, W)
         with torch.no_grad():
-            logits = self.model(tensor)
-            probs = torch.softmax(logits, dim=1)[0]
+            logits = self.model(batch)       # (tta_passes, num_classes)
+            probs = torch.softmax(logits, dim=1)
+
+        return probs.mean(dim=0)             # (num_classes,)
+
+    # ── Public API ────────────────────────────────────────────────────────────
+
+    def predict(self, image_path: str, top_k: int = 3) -> List[dict]:
+        img = Image.open(image_path).convert("RGB")
+        probs = self._image_to_probs(img)
 
         top_k = min(top_k, len(self.labels))
         top_probs, top_idxs = probs.topk(top_k)
@@ -78,6 +115,12 @@ class FoodPredictor:
         for prob, idx in zip(top_probs, top_idxs):
             cls = self.labels[str(idx.item())]
             nutrition = self.nutrition.get(cls, self.nutrition.get("unknown", {}))
+            if not nutrition:
+                import warnings
+                warnings.warn(
+                    f"No nutrition data found for class '{cls}'; returning empty dict.",
+                    stacklevel=2,
+                )
             results.append(
                 {
                     "food": cls,
@@ -88,7 +131,7 @@ class FoodPredictor:
             )
         return results
 
-    def predict_for_chatbot(self, image_path: str):
+    def predict_for_chatbot(self, image_path: str) -> str:
         results = self.predict(image_path, top_k=1)
         if not results:
             return "I couldn't identify this food item."

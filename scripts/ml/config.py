@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import random
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 import torch
@@ -22,28 +22,69 @@ def _default_output_dir() -> Path:
 
 @dataclass
 class MLConfig:
-    data_dir: Path = _default_data_dir()
-    output_dir: Path = _default_output_dir()
+    # ── Paths ────────────────────────────────────────────────────────────────
+    data_dir: Path = field(default_factory=_default_data_dir)
+    output_dir: Path = field(default_factory=_default_output_dir)
+
+    # ── Model ────────────────────────────────────────────────────────────────
+    model_name: str = "efficientnet_b0"
     image_size: int = 224
+    hidden_dim: int = 512
+    dropout_1: float = 0.4
+    dropout_2: float = 0.2
+
+    # ── Training ─────────────────────────────────────────────────────────────
+    epochs: int = 20
     batch_size: int = 32
-    epochs: int = 15
-    lr: float = 1e-4
+    lr: float = 3e-4           # slightly higher default; warmup keeps it safe
     weight_decay: float = 1e-4
+    label_smoothing: float = 0.05
+    grad_clip_norm: float = 1.0
+    amp: bool = True
+
+    # ── Scheduler / Optimiser ────────────────────────────────────────────────
+    # "onecycle" | "cosine_warmup"
+    scheduler: str = "cosine_warmup"
+    # Fraction of total steps used for linear warmup (cosine_warmup only)
+    warmup_fraction: float = 0.1
+    # Min lr at end of cosine decay (cosine_warmup only)
+    eta_min_fraction: float = 0.01   # eta_min = lr * eta_min_fraction
+
+    # ── Freeze / Unfreeze ────────────────────────────────────────────────────
+    # "all_backbone" | "last_blocks" | "full_finetune"
+    freeze_policy: str = "last_blocks"
+    # Epoch at which to unfreeze the full backbone (0 = never unfreeze).
+    # When > 0, the model starts with freeze_policy applied, then at this
+    # epoch all backbone weights become trainable (full fine-tune).
+    unfreeze_epoch: int = 7
+
+    # ── Augmentation ─────────────────────────────────────────────────────────
+    # RandAugment magnitude (0 = disabled, recommended 7-9)
+    randaugment_magnitude: int = 8
+    # RandomErasing probability (0 = disabled)
+    random_erasing_prob: float = 0.25
+    # Mixup alpha (0 = disabled, recommended 0.2-0.4)
+    mixup_alpha: float = 0.2
+
+    # ── Sampling ─────────────────────────────────────────────────────────────
+    # Use WeightedRandomSampler to up-sample minority classes during training
+    weighted_sampling: bool = True
+
+    # ── Early Stopping ───────────────────────────────────────────────────────
+    patience: int = 6
+
+    # ── Data splits ──────────────────────────────────────────────────────────
     val_split: float = 0.15
     test_split: float = 0.10
     seed: int = 42
     num_workers: int = min(4, os.cpu_count() or 1)
-    model_name: str = "efficientnet_b0"
-    freeze_policy: str = "last_blocks"
-    dropout_1: float = 0.4
-    dropout_2: float = 0.2
-    hidden_dim: int = 512
-    patience: int = 5
-    grad_clip_norm: float = 1.0
-    label_smoothing: float = 0.05
-    amp: bool = True
     detect_duplicates: bool = True
 
+    # ── TTA (Test-Time Augmentation) ─────────────────────────────────────────
+    # Number of augmented passes during inference (1 = disabled)
+    tta_passes: int = 5
+
+    # ─────────────────────────────────────────────────────────────────────────
     @property
     def device(self) -> torch.device:
         return torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -102,4 +143,3 @@ def seed_everything(seed: int) -> None:
         torch.backends.cudnn.benchmark = False
     except Exception:
         pass
-
