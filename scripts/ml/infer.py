@@ -18,7 +18,6 @@ except ImportError:  # pragma: no cover
 
 
 class FoodPredictor:
-    """Predict food class + nutrition metadata from an image."""
 
     def __init__(
         self,
