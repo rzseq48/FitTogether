@@ -74,15 +74,7 @@ class FoodPredictor:
     # ── Core inference ────────────────────────────────────────────────────────
 
     def _image_to_probs(self, img: Image.Image) -> torch.Tensor:
-        """
-        Returns averaged probability tensor over TTA passes.
-
-        Pass 1:  deterministic centre-crop (eval_transform)
-        Pass 2…N: random crop + random flip + slight colour jitter (tta_transform)
-
-        Averaging multiple stochastic views of the same image reduces variance
-        and consistently improves top-1 accuracy by ~1-2%.
-        """
+    
         tensors: List[torch.Tensor] = []
 
         # First pass: deterministic eval crop
