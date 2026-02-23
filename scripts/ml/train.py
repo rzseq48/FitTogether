@@ -49,11 +49,7 @@ def mixup_batch(
     alpha: float,
     num_classes: int,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    Returns mixed images and soft one-hot labels.
-    lam ~ Beta(alpha, alpha); image = lam * x_a + (1-lam) * x_b
-    label = lam * onehot_a + (1-lam) * onehot_b
-    """
+   
     lam = float(torch.distributions.Beta(alpha, alpha).sample())
     batch_size = imgs.size(0)
     idx = torch.randperm(batch_size, device=imgs.device)
