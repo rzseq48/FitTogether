@@ -1,58 +1,71 @@
-# Welcome to FitTogether👋
+# FitTogether 💪
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A mobile fitness and nutrition tracking app powered by AI. Snap a photo of your food, get instant calorie estimates, log your meals, and get coached — all in one place.
 
-## Get started
+> Built with Expo (React Native), Supabase, and a custom-trained PyTorch food recognition model.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## Features
 
-2. Start the app
+- **AI Food Tracker** — Take a photo of any meal and the app identifies the food, estimates calories and nutrition, and saves it to your personal log
+- **Fitness Tracker** — Log and track your workouts over time
+- **AI Coach** — Personalized guidance based on your activity and nutrition data
+- **Supabase Backend** — Auth, real-time database, and storage all powered by Supabase
 
-   ```bash
-   npx expo start
-   ```
+---
 
-In the output, you'll find options to open the app in a
+## Tech Stack
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+| Layer | Technology |
+|---|---|
+| Mobile App | [Expo](https://expo.dev) (React Native) |
+| Routing | Expo Router (file-based) |
+| Backend / DB | [Supabase](https://supabase.com) |
+| ML Model | PyTorch (custom-trained food classifier) |
+| Inference | Python (`scripts/ml/infer.py`) |
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+---
 
-## Get a fresh project
+## Getting Started
 
-When you're ready, run:
+### Prerequisites
+
+- Node.js 18+
+- Python 3.9+ (for ML pipeline)
+- A [Supabase](https://supabase.com) project
+
+### Install & Run
 
 ```bash
-npm run reset-project
+# Install JS dependencies
+npm install
+
+# Start the Expo dev server
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+From there you can open the app in:
+- [Expo Go](https://expo.dev/go)
+- [iOS Simulator](https://docs.expo.dev/workflow/ios-simulator/)
+- [Android Emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
 
-## Learn more
+### Environment Variables
 
-To learn more about developing your project with Expo, look at the following resources:
+Create a `.env` file in the root with your Supabase credentials:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```env
+EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+```
 
-## Join the community
+---
 
-Join our community of developers creating universal apps.
+## ML Pipeline (Food Recognition Model)
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
-Day 1: Built authentication and food tracking
+The food classifier is a fine-tuned image classification model trained on Indian food images.
 
-## ML pipeline (food model)
-
-Train and evaluate the model with the modular pipeline:
+### Training
 
 ```bash
 python3 scripts/ml/main.py \
@@ -62,35 +75,85 @@ python3 scripts/ml/main.py \
   --seed 42
 ```
 
-Available useful flags:
+**Optional flags:**
 
-- `--freeze-policy {all_backbone,last_blocks,full_finetune}`
-- `--disable-amp`
-- `--disable-dedup`
-- `--output-dir ml_model`
+- `--freeze-policy {all_backbone,last_blocks,full_finetune}` — control which layers are trained
+- `--output-dir ml_model` — where to save artifacts
+- `--disable-amp` — disable automatic mixed precision
+- `--disable-dedup` — disable dataset deduplication
 
-The run writes artifacts to `ml_model/`, including:
+### Output Artifacts
 
-- `food_model.pth` (legacy checkpoint)
-- `labels.json`
-- `nutrition_map.json`
-- `model_bundle.pt` (new packaged artifact)
-- `training_history.json`
-- `metrics_summary.json`
-- `per_class_metrics.csv`
-- `confusion_matrix.csv`
+Training writes to `ml_model/`:
 
-Inference usage:
+| File | Description |
+|---|---|
+| `food_model.pth` | Model checkpoint |
+| `model_bundle.pt` | Packaged artifact for inference |
+| `labels.json` | Class label mapping |
+| `nutrition_map.json` | Nutrition data per food class |
+| `training_history.json` | Loss/accuracy over epochs |
+| `metrics_summary.json` | Final evaluation metrics |
+| `per_class_metrics.csv` | Per-class precision/recall/F1 |
+| `confusion_matrix.csv` | Full confusion matrix |
+
+### Inference
 
 ```python
 from scripts.ml.infer import FoodPredictor
 
 predictor = FoodPredictor()
-print(predictor.predict_for_chatbot("photo.jpg"))
+result = predictor.predict_for_chatbot("photo.jpg")
+print(result)
 ```
 
-Legacy import remains supported:
+---
 
-```python
-from scripts.ml_pipeline import FoodPredictor
+## Project Structure
+
 ```
+FitTogether/
+├── app/
+│   ├── (tabs)/
+│   │   ├── food.tsx          # Food tracker tab (photo → AI → calories)
+│   │   ├── workout.tsx       # Workout tracker tab
+│   │   ├── chat.tsx          # AI coach chat tab
+│   │   └── _layout.tsx       # Tab navigator layout
+│   ├── auth/
+│   │   ├── login.tsx
+│   │   └── signup.tsx
+│   ├── index.tsx             # Entry / redirect
+│   └── _layout.tsx           # Root layout
+├── components/               # Shared UI components
+├── constants/
+│   └── theme.ts              # App theme / design tokens
+├── hooks/                    # Custom React hooks
+├── lib/
+│   └── supabase.ts           # Supabase client setup
+├── scripts/
+│   └── ml/                   # ML training & inference pipeline
+│       ├── main.py           # Training entry point
+│       ├── model.py          # Model architecture
+│       ├── data.py           # Dataset & preprocessing
+│       ├── train.py          # Training loop
+│       ├── infer.py          # Inference / FoodPredictor
+│       ├── metrics.py        # Evaluation metrics
+│       └── config.py         # Hyperparameters & config
+├── ml_model/                 # Trained model artifacts (gitignored)
+│   ├── food_model.pth
+│   ├── labels.json
+│   └── nutrition_map.json
+└── test_images/              # Training dataset (Indian food images)
+```
+
+---
+
+## Contributing
+
+Pull requests are welcome! For major changes, please open an issue first to discuss what you'd like to change.
+
+---
+
+## License
+
+[MIT](LICENSE)
