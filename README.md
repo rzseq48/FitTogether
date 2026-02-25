@@ -107,6 +107,14 @@ result = predictor.predict_for_chatbot("photo.jpg")
 print(result)
 ```
 
+### ML Pipeline Tests
+
+Run the ML unit test suite:
+
+```bash
+.venv/bin/python -m unittest discover -s tests -p "test_*.py" -v
+```
+
 ---
 
 ## Project Structure
