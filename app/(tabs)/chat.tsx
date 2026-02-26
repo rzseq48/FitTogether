@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { getCoachReply } from '../../lib/ai';
 import { supabase } from '../../lib/supabase';
 
 interface Message {
@@ -102,60 +103,15 @@ export default function ChatScreen() {
     setLoading(true);
 
     try {
-      const apiKey = process.env.EXPO_PUBLIC_CLAUDE_API_KEY;
+      const aiReply = await getCoachReply(inputText.trim(), userContext);
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: aiReply,
+        timestamp: new Date(),
+      };
 
-      // Build context for Claude
-      let contextPrompt = `You are a knowledgeable fitness and nutrition coach. Be helpful, encouraging, and specific.
-
-User's context today:
-- Calories consumed: ${userContext?.todayCalories || 0}
-- Protein consumed: ${userContext?.todayProtein || 0}g
-- Meals logged: ${userContext?.todayMeals || 0}
-- Workouts completed: ${userContext?.todayWorkouts || 0}`;
-
-      if (userContext && userContext.recentMeals.length > 0) {
-        contextPrompt += `\n\nRecent meals: ${userContext.recentMeals.join(', ')}`;
-      }
-
-      if (userContext && userContext.recentWorkouts.length > 0) {
-        contextPrompt += `\n\nRecent workouts: ${userContext.recentWorkouts.join(', ')}`;
-      }
-
-      contextPrompt += `\n\nUser's question: ${inputText}
-
-Provide a helpful, personalized response in 2-3 paragraphs. Be conversational and encouraging.`;
-
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey!,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-3-haiku-20240307',
-          max_tokens: 500,
-          messages: [
-            {
-              role: 'user',
-              content: contextPrompt,
-            },
-          ],
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.content && data.content[0] && data.content[0].text) {
-        const assistantMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: data.content[0].text,
-          timestamp: new Date(),
-        };
-
-        setMessages(prev => [...prev, assistantMessage]);
-      }
+      setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Chat error:', error);
       const errorMessage: Message = {

@@ -12,6 +12,7 @@ A mobile fitness and nutrition tracking app powered by AI. Snap a photo of your 
 - **Fitness Tracker** — Log and track your workouts over time
 - **AI Coach** — Personalized guidance based on your activity and nutrition data
 - **Supabase Backend** — Auth, real-time database, and storage all powered by Supabase
+- **Secure AI Proxy** — Anthropic API calls run through a Supabase Edge Function (no API keys in client code)
 
 ---
 
@@ -58,6 +59,23 @@ Create a `.env` file in the root with your Supabase credentials:
 EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 ```
+
+You can copy from:
+
+```bash
+cp .env.example .env
+```
+
+### Secure AI Setup (Supabase Edge Function)
+
+Deploy the `ai-proxy` edge function and store your Anthropic key as a server-side secret:
+
+```bash
+supabase functions deploy ai-proxy
+supabase secrets set ANTHROPIC_API_KEY=your_anthropic_api_key
+```
+
+The mobile app calls `supabase.functions.invoke('ai-proxy')`, so no Anthropic key is exposed in the app bundle.
 
 ---
 

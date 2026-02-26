@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { getWorkoutRecommendation as fetchWorkoutRecommendation } from '../../lib/ai';
 import { supabase } from '../../lib/supabase';
 
 interface WorkoutLog {
@@ -92,44 +93,12 @@ export default function WorkoutScreen() {
     setLoadingRecommendation(true);
     
     try {
-      const apiKey = process.env.EXPO_PUBLIC_CLAUDE_API_KEY;
-      
-      const prompt = `Based on today's nutrition:
-- Calories consumed: ${foodSummary.totalCalories}
-- Protein consumed: ${foodSummary.totalProtein}g
-- Workouts completed today: ${workoutLogs.length}
-
-Provide a brief workout recommendation (2-3 sentences). Consider:
-- If calories/protein are high, suggest strength training
-- If calories/protein are low, suggest lighter cardio or rest
-- Suggest 3-4 specific exercises with sets/reps
-
-Keep it concise and actionable.`;
-
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey!,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-3-haiku-20240307',
-          max_tokens: 300,
-          messages: [
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
-        }),
-      });
-
-      const data = await response.json();
-      
-      if (data.content && data.content[0] && data.content[0].text) {
-        setAiRecommendation(data.content[0].text);
-      }
+      const recommendation = await fetchWorkoutRecommendation(
+        foodSummary.totalCalories,
+        foodSummary.totalProtein,
+        workoutLogs.length
+      );
+      setAiRecommendation(recommendation);
     } catch (error) {
       console.error('Recommendation error:', error);
       Alert.alert('Error', 'Could not get AI recommendation');

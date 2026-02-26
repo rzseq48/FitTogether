@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { analyzeFoodImage as analyzeFoodImageWithAI } from '../../lib/ai';
 import { supabase } from '../../lib/supabase';
 
 interface FoodLog {
@@ -83,69 +84,16 @@ export default function FoodScreen() {
         reader.readAsDataURL(blob);
       });
 
-      // Call Claude API
-      const apiKey = process.env.EXPO_PUBLIC_CLAUDE_API_KEY;
-      
-      const apiResponse = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey!,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-3-haiku-20240307',
-          max_tokens: 1024,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'image',
-                  source: {
-                    type: 'base64',
-                    media_type: 'image/jpeg',
-                    data: base64,
-                  },
-                },
-                {
-                  type: 'text',
-                  text: `Analyze this food image and provide nutritional information. Respond ONLY with a JSON object in this exact format, no other text:
-{
-  "meal_name": "name of the dish",
-  "calories": estimated_calories_as_number,
-  "protein": grams_as_number,
-  "carbs": grams_as_number,
-  "fat": grams_as_number
-}
+      const nutritionData = await analyzeFoodImageWithAI(base64, 'image/jpeg');
 
-Be specific about the dish name if you recognize it (e.g., "Chicken Biryani" not just "Rice dish"). Provide your best estimate for all nutritional values.`
-                }
-              ],
-            },
-          ],
-        }),
-      });
+      // Auto-fill the form
+      setMealName(nutritionData.meal_name);
+      setCalories(nutritionData.calories.toString());
+      setProtein(nutritionData.protein.toString());
+      setCarbs(nutritionData.carbs.toString());
+      setFat(nutritionData.fat.toString());
 
-      const data = await apiResponse.json();
-      
-      if (data.content && data.content[0] && data.content[0].text) {
-        const nutritionText = data.content[0].text;
-        
-        // Parse the JSON response
-        const nutritionData = JSON.parse(nutritionText);
-        
-        // Auto-fill the form
-        setMealName(nutritionData.meal_name);
-        setCalories(nutritionData.calories.toString());
-        setProtein(nutritionData.protein.toString());
-        setCarbs(nutritionData.carbs.toString());
-        setFat(nutritionData.fat.toString());
-        
-        Alert.alert('Success!', 'Food analyzed! Review the values and tap Log Meal to save.');
-      } else {
-        throw new Error('Invalid response from AI');
-      }
+      Alert.alert('Success!', 'Food analyzed! Review the values and tap Log Meal to save.');
     } catch (error) {
       console.error('Analysis error:', error);
       Alert.alert('Error', 'Could not analyze image. Please enter manually.');

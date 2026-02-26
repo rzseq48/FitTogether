@@ -31,7 +31,14 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+.env.*.local
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
 
 # typescript
 *.tsbuildinfo
@@ -44,3 +51,12 @@ app-example
 test_images/food.zip
 
 test_images/Indian Food Images
+
+# model artifacts
+ml_model/*.pth
+ml_model/*.pt
+ml_model/training_history.json
+ml_model/metrics_summary.json
+ml_model/per_class_metrics.csv
+ml_model/confusion_matrix.csv
+ml_model/duplicates_removed.json
