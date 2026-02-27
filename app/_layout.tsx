@@ -32,7 +32,7 @@ export default function RootLayout() {
     } else if (session && inAuthGroup) {
       router.replace('/(tabs)/food');
     }
-  }, [session, segments, loading]);
+  }, [session, segments, loading, router]);
 
   return <Slot />;
 }

@@ -56,14 +56,20 @@ export default function ChatScreen() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const today = new Date().toISOString().split('T')[0];
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    const startIso = start.toISOString();
+    const endIso = end.toISOString();
 
     // Get today's food
     const { data: foodData } = await supabase
       .from('food_logs')
       .select('meal_name, calories, protein')
       .eq('user_id', user.id)
-      .gte('meal_time', `${today}T00:00:00`)
+      .gte('meal_time', startIso)
+      .lt('meal_time', endIso)
       .order('meal_time', { ascending: false });
 
     // Get today's workouts
@@ -71,7 +77,8 @@ export default function ChatScreen() {
       .from('workout_logs')
       .select('exercise_name, sets, reps, weight')
       .eq('user_id', user.id)
-      .gte('workout_time', `${today}T00:00:00`)
+      .gte('workout_time', startIso)
+      .lt('workout_time', endIso)
       .order('workout_time', { ascending: false });
 
     const context: UserContext = {

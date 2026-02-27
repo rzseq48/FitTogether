@@ -25,7 +25,7 @@ export default function Login() {
     if (error) {
       Alert.alert('Login Failed', error.message);
     } else {
-      router.replace('./(tabs)');
+      router.replace('/(tabs)/food');
     }
   };
 
@@ -62,7 +62,7 @@ export default function Login() {
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => router.push('/auth/signup')}>
-        <Text style={styles.link}>Don't have an account? Sign up</Text>
+        <Text style={styles.link}>Don&apos;t have an account? Sign up</Text>
       </TouchableOpacity>
     </View>
   );

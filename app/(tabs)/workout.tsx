@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -28,6 +28,14 @@ interface FoodSummary {
   totalProtein: number;
 }
 
+const getLocalDayBounds = () => {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { startIso: start.toISOString(), endIso: end.toISOString() };
+};
+
 export default function WorkoutScreen() {
   const [exerciseName, setExerciseName] = useState('');
   const [sets, setSets] = useState('');
@@ -41,53 +49,57 @@ export default function WorkoutScreen() {
   const [aiRecommendation, setAiRecommendation] = useState('');
   const [loadingRecommendation, setLoadingRecommendation] = useState(false);
 
-  useEffect(() => {
-    loadTodaysWorkouts();
-    loadTodaysFood();
+  const loadTodaysWorkouts = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { startIso, endIso } = getLocalDayBounds();
+
+      const { data, error } = await supabase
+        .from('workout_logs')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('workout_time', startIso)
+        .lt('workout_time', endIso)
+        .order('workout_time', { ascending: false });
+
+      if (error) {
+        console.error('Error loading workouts:', error);
+      } else {
+        setWorkoutLogs(data || []);
+      }
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
-  const loadTodaysWorkouts = async () => {
-    setRefreshing(true);
+  const loadTodaysFood = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) return;
 
-    const today = new Date().toISOString().split('T')[0];
-    
-    const { data, error } = await supabase
-      .from('workout_logs')
-      .select('*')
-      .eq('user_id', user.id)
-      .gte('workout_time', `${today}T00:00:00`)
-      .order('workout_time', { ascending: false });
-
-    if (error) {
-      console.error('Error loading workouts:', error);
-    } else {
-      setWorkoutLogs(data || []);
-    }
-    setRefreshing(false);
-  };
-
-  const loadTodaysFood = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) return;
-
-    const today = new Date().toISOString().split('T')[0];
+    const { startIso, endIso } = getLocalDayBounds();
     
     const { data, error } = await supabase
       .from('food_logs')
       .select('calories, protein')
       .eq('user_id', user.id)
-      .gte('meal_time', `${today}T00:00:00`);
+      .gte('meal_time', startIso)
+      .lt('meal_time', endIso);
 
     if (!error && data) {
       const totalCalories = data.reduce((sum, meal) => sum + meal.calories, 0);
       const totalProtein = data.reduce((sum, meal) => sum + meal.protein, 0);
       setFoodSummary({ totalCalories, totalProtein });
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadTodaysWorkouts();
+    loadTodaysFood();
+  }, [loadTodaysFood, loadTodaysWorkouts]);
 
   const getAIRecommendation = async () => {
     setLoadingRecommendation(true);
@@ -157,7 +169,7 @@ export default function WorkoutScreen() {
       <View style={styles.foodSummaryCard}>
         <View style={styles.cardHeader}>
           <Ionicons name="restaurant" size={24} color="#34C759" />
-          <Text style={styles.cardTitle}>Today's Nutrition</Text>
+          <Text style={styles.cardTitle}>Today&apos;s Nutrition</Text>
         </View>
         <View style={styles.nutritionRow}>
           <View style={styles.nutritionItem}>
@@ -245,7 +257,7 @@ export default function WorkoutScreen() {
 
       {/* Today's Summary */}
       <View style={styles.summarySection}>
-        <Text style={styles.sectionTitle}>Today's Workout Summary</Text>
+        <Text style={styles.sectionTitle}>Today&apos;s Workout Summary</Text>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Total Sets:</Text>
           <Text style={styles.summaryValue}>{totalSets}</Text>
@@ -262,7 +274,7 @@ export default function WorkoutScreen() {
 
       {/* Today's Workouts */}
       <View style={styles.logsSection}>
-        <Text style={styles.sectionTitle}>Today's Workouts</Text>
+        <Text style={styles.sectionTitle}>Today&apos;s Workouts</Text>
         {refreshing ? (
           <ActivityIndicator size="large" color="#007AFF" />
         ) : workoutLogs.length === 0 ? (

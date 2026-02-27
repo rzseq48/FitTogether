@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -26,6 +26,14 @@ interface FoodLog {
   meal_category: string;
 }
 
+const getLocalDayBounds = () => {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { startIso: start.toISOString(), endIso: end.toISOString() };
+};
+
 export default function FoodScreen() {
   const [mealName, setMealName] = useState('');
   const [calories, setCalories] = useState('');
@@ -38,32 +46,35 @@ export default function FoodScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadTodaysMeals();
+  const loadTodaysMeals = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { startIso, endIso } = getLocalDayBounds();
+
+      const { data, error } = await supabase
+        .from('food_logs')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('meal_time', startIso)
+        .lt('meal_time', endIso)
+        .order('meal_time', { ascending: false });
+
+      if (error) {
+        console.error('Error loading meals:', error);
+      } else {
+        setFoodLogs(data || []);
+      }
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
-  const loadTodaysMeals = async () => {
-    setRefreshing(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) return;
-
-    const today = new Date().toISOString().split('T')[0];
-    
-    const { data, error } = await supabase
-      .from('food_logs')
-      .select('*')
-      .eq('user_id', user.id)
-      .gte('meal_time', `${today}T00:00:00`)
-      .order('meal_time', { ascending: false });
-
-    if (error) {
-      console.error('Error loading meals:', error);
-    } else {
-      setFoodLogs(data || []);
-    }
-    setRefreshing(false);
-  };
+  useEffect(() => {
+    loadTodaysMeals();
+  }, [loadTodaysMeals]);
 
   const analyzeImage = async (imageUri: string) => {
     setAnalyzing(true);
@@ -303,7 +314,7 @@ export default function FoodScreen() {
       </View>
 
       <View style={styles.summarySection}>
-        <Text style={styles.sectionTitle}>Today's Summary</Text>
+        <Text style={styles.sectionTitle}>Today&apos;s Summary</Text>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Total Calories:</Text>
           <Text style={styles.summaryValue}>{totalCalories}</Text>
@@ -315,7 +326,7 @@ export default function FoodScreen() {
       </View>
 
       <View style={styles.logsSection}>
-        <Text style={styles.sectionTitle}>Today's Meals</Text>
+        <Text style={styles.sectionTitle}>Today&apos;s Meals</Text>
         {refreshing ? (
           <ActivityIndicator size="large" color="#007AFF" />
         ) : foodLogs.length === 0 ? (
