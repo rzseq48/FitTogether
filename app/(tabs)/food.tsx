@@ -26,6 +26,13 @@ interface FoodLog {
   meal_category: string;
 }
 
+const mealCategoryConfig = [
+  { key: 'Breakfast', title: 'Breakfast', emoji: '🍳' },
+  { key: 'Lunch', title: 'Lunch', emoji: '🥗' },
+  { key: 'Dinner', title: 'Dinner', emoji: '🍽️' },
+  { key: 'Snack', title: 'Snacks', emoji: '🍿' },
+] as const;
+
 const getLocalDayBounds = () => {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
@@ -212,6 +219,8 @@ export default function FoodScreen() {
 
   const totalCalories = foodLogs.reduce((sum, log) => sum + log.calories, 0);
   const totalProtein = foodLogs.reduce((sum, log) => sum + log.protein, 0);
+  const totalCarbs = foodLogs.reduce((sum, log) => sum + log.carbs, 0);
+  const totalFat = foodLogs.reduce((sum, log) => sum + log.fat, 0);
 
   // Group meals by category
   const groupedMeals = {
@@ -221,10 +230,54 @@ export default function FoodScreen() {
     Snack: foodLogs.filter(log => log.meal_category === 'Snack' || !log.meal_category),
   };
 
+  const formatMealTime = (mealTime: string) =>
+    new Date(mealTime).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.heroCard}>
+        <View style={styles.heroHeader}>
+          <View>
+            <Text style={styles.heroOverline}>TODAY</Text>
+            <Text style={styles.heroTitle}>Food Overview</Text>
+          </View>
+          <View style={styles.heroBadge}>
+            <Ionicons name="nutrition-outline" size={18} color="#0A7C52" />
+            <Text style={styles.heroBadgeText}>{foodLogs.length} meals</Text>
+          </View>
+        </View>
+
+        <View style={styles.heroMainStat}>
+          <Text style={styles.heroCalories}>{totalCalories}</Text>
+          <Text style={styles.heroCaloriesLabel}>kcal consumed</Text>
+        </View>
+
+        <View style={styles.macroPillsRow}>
+          <View style={[styles.macroPill, styles.proteinPill]}>
+            <Text style={styles.macroPillValue}>{totalProtein.toFixed(1)}g</Text>
+            <Text style={styles.macroPillLabel}>Protein</Text>
+          </View>
+          <View style={[styles.macroPill, styles.carbPill]}>
+            <Text style={styles.macroPillValue}>{totalCarbs.toFixed(1)}g</Text>
+            <Text style={styles.macroPillLabel}>Carbs</Text>
+          </View>
+          <View style={[styles.macroPill, styles.fatPill]}>
+            <Text style={styles.macroPillValue}>{totalFat.toFixed(1)}g</Text>
+            <Text style={styles.macroPillLabel}>Fat</Text>
+          </View>
+        </View>
+      </View>
+
       <View style={styles.formSection}>
         <Text style={styles.sectionTitle}>Log a Meal</Text>
+        <Text style={styles.sectionSubtitle}>Snap a photo or enter nutrition details manually.</Text>
         
         {/* Camera Buttons */}
         <View style={styles.cameraButtons}>
@@ -313,121 +366,42 @@ export default function FoodScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.summarySection}>
-        <Text style={styles.sectionTitle}>Today&apos;s Summary</Text>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Total Calories:</Text>
-          <Text style={styles.summaryValue}>{totalCalories}</Text>
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Total Protein:</Text>
-          <Text style={styles.summaryValue}>{totalProtein.toFixed(1)}g</Text>
-        </View>
-      </View>
-
       <View style={styles.logsSection}>
         <Text style={styles.sectionTitle}>Today&apos;s Meals</Text>
+        <Text style={styles.sectionSubtitle}>Grouped by meal time for quick scanning.</Text>
         {refreshing ? (
-          <ActivityIndicator size="large" color="#007AFF" />
+          <ActivityIndicator size="large" color="#0A7C52" />
         ) : foodLogs.length === 0 ? (
-          <Text style={styles.emptyText}>No meals logged yet today</Text>
+          <View style={styles.emptyState}>
+            <Ionicons name="restaurant-outline" size={28} color="#93A09A" />
+            <Text style={styles.emptyText}>No meals logged yet today</Text>
+          </View>
         ) : (
           <>
-            {/* Breakfast */}
-            {groupedMeals.Breakfast.length > 0 && (
-              <View style={styles.mealCategory}>
-                <Text style={styles.categoryTitle}>🍳 Breakfast</Text>
-                {groupedMeals.Breakfast.map((log) => (
-                  <View key={log.id} style={styles.logCard}>
-                    <Text style={styles.logMealName}>{log.meal_name}</Text>
-                    <View style={styles.logDetails}>
-                      <Text style={styles.logCalories}>{log.calories} cal</Text>
-                      <Text style={styles.logMacros}>
-                        P: {log.protein}g | C: {log.carbs}g | F: {log.fat}g
-                      </Text>
-                    </View>
-                    <Text style={styles.logTime}>
-                      {new Date(log.meal_time).toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            )}
+            {mealCategoryConfig.map((category) => {
+              const categoryMeals = groupedMeals[category.key];
+              if (categoryMeals.length === 0) return null;
 
-            {/* Lunch */}
-            {groupedMeals.Lunch.length > 0 && (
-              <View style={styles.mealCategory}>
-                <Text style={styles.categoryTitle}>🥗 Lunch</Text>
-                {groupedMeals.Lunch.map((log) => (
-                  <View key={log.id} style={styles.logCard}>
-                    <Text style={styles.logMealName}>{log.meal_name}</Text>
-                    <View style={styles.logDetails}>
+              return (
+                <View key={category.key} style={styles.mealCategory}>
+                  <Text style={styles.categoryTitle}>{category.emoji} {category.title}</Text>
+                  {categoryMeals.map((log) => (
+                    <View key={log.id} style={styles.logCard}>
+                      <View style={styles.logTopRow}>
+                        <Text style={styles.logMealName}>{log.meal_name}</Text>
+                        <Text style={styles.logTime}>{formatMealTime(log.meal_time)}</Text>
+                      </View>
                       <Text style={styles.logCalories}>{log.calories} cal</Text>
-                      <Text style={styles.logMacros}>
-                        P: {log.protein}g | C: {log.carbs}g | F: {log.fat}g
-                      </Text>
+                      <View style={styles.logMacroChips}>
+                        <Text style={styles.logMacroChip}>P {log.protein}g</Text>
+                        <Text style={styles.logMacroChip}>C {log.carbs}g</Text>
+                        <Text style={styles.logMacroChip}>F {log.fat}g</Text>
+                      </View>
                     </View>
-                    <Text style={styles.logTime}>
-                      {new Date(log.meal_time).toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {/* Dinner */}
-            {groupedMeals.Dinner.length > 0 && (
-              <View style={styles.mealCategory}>
-                <Text style={styles.categoryTitle}>🍽️ Dinner</Text>
-                {groupedMeals.Dinner.map((log) => (
-                  <View key={log.id} style={styles.logCard}>
-                    <Text style={styles.logMealName}>{log.meal_name}</Text>
-                    <View style={styles.logDetails}>
-                      <Text style={styles.logCalories}>{log.calories} cal</Text>
-                      <Text style={styles.logMacros}>
-                        P: {log.protein}g | C: {log.carbs}g | F: {log.fat}g
-                      </Text>
-                    </View>
-                    <Text style={styles.logTime}>
-                      {new Date(log.meal_time).toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {/* Snacks */}
-            {groupedMeals.Snack.length > 0 && (
-              <View style={styles.mealCategory}>
-                <Text style={styles.categoryTitle}>🍿 Snacks</Text>
-                {groupedMeals.Snack.map((log) => (
-                  <View key={log.id} style={styles.logCard}>
-                    <Text style={styles.logMealName}>{log.meal_name}</Text>
-                    <View style={styles.logDetails}>
-                      <Text style={styles.logCalories}>{log.calories} cal</Text>
-                      <Text style={styles.logMacros}>
-                        P: {log.protein}g | C: {log.carbs}g | F: {log.fat}g
-                      </Text>
-                    </View>
-                    <Text style={styles.logTime}>
-                      {new Date(log.meal_time).toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            )}
+                  ))}
+                </View>
+              );
+            })}
           </>
         )}
       </View>
@@ -438,84 +412,195 @@ export default function FoodScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#EEF4F0',
+  },
+  contentContainer: {
+    padding: 16,
+    paddingBottom: 28,
+    gap: 14,
+  },
+  heroCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#DDE7E1',
+    shadowColor: '#0A3828',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  heroHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  heroOverline: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.1,
+    color: '#6C7F76',
+  },
+  heroTitle: {
+    marginTop: 4,
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#10221A',
+  },
+  heroBadge: {
+    backgroundColor: '#E8F4ED',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  heroBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0A7C52',
+  },
+  heroMainStat: {
+    marginTop: 18,
+    marginBottom: 14,
+  },
+  heroCalories: {
+    fontSize: 42,
+    fontWeight: '800',
+    color: '#10221A',
+  },
+  heroCaloriesLabel: {
+    marginTop: -2,
+    fontSize: 14,
+    color: '#5F736A',
+    fontWeight: '600',
+  },
+  macroPillsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  macroPill: {
+    flex: 1,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+  },
+  proteinPill: {
+    backgroundColor: '#EAF4FF',
+    borderColor: '#D1E8FF',
+  },
+  carbPill: {
+    backgroundColor: '#FFF5E8',
+    borderColor: '#FFE4C0',
+  },
+  fatPill: {
+    backgroundColor: '#F8EEFF',
+    borderColor: '#E9D9FF',
+  },
+  macroPillValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#10221A',
+  },
+  macroPillLabel: {
+    marginTop: 2,
+    fontSize: 12,
+    color: '#5F736A',
   },
   formSection: {
-    backgroundColor: '#fff',
-    padding: 20,
-    marginBottom: 10,
+    backgroundColor: '#FFFFFF',
+    padding: 18,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#DDE7E1',
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 15,
+    fontSize: 21,
+    fontWeight: '800',
+    color: '#10221A',
+  },
+  sectionSubtitle: {
+    marginTop: 6,
+    marginBottom: 14,
+    fontSize: 13,
+    color: '#6A7D74',
+    lineHeight: 18,
   },
   cameraButtons: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 15,
+    marginBottom: 14,
   },
   cameraButton: {
     flex: 1,
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 8,
+    backgroundColor: '#0A7C52',
+    padding: 14,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
   galleryButton: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#1660B8',
   },
   cameraButtonText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
   },
   previewImage: {
     width: '100%',
     height: 200,
-    borderRadius: 8,
-    marginBottom: 15,
+    borderRadius: 14,
+    marginBottom: 14,
   },
   analyzingContainer: {
-    padding: 20,
+    padding: 18,
     alignItems: 'center',
+    backgroundColor: '#F6FBF8',
+    borderRadius: 12,
+    marginBottom: 8,
   },
   analyzingText: {
     marginTop: 10,
-    fontSize: 16,
-    color: '#007AFF',
+    fontSize: 15,
+    color: '#0A7C52',
+    fontWeight: '600',
   },
   orText: {
     textAlign: 'center',
-    color: '#666',
-    marginVertical: 10,
-    fontSize: 14,
+    color: '#6A7D74',
+    marginVertical: 12,
+    fontSize: 13,
+    fontWeight: '600',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#D5E0DA',
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     marginBottom: 10,
     fontSize: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#FCFDFC',
+    color: '#10221A',
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 5,
+    gap: 8,
   },
   smallInput: {
     flex: 1,
   },
   button: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#0A7C52',
     padding: 15,
-    borderRadius: 8,
-    marginTop: 10,
+    borderRadius: 12,
+    marginTop: 12,
   },
   buttonDisabled: {
     opacity: 0.5,
@@ -524,75 +609,80 @@ const styles = StyleSheet.create({
     color: '#fff',
     textAlign: 'center',
     fontSize: 16,
-    fontWeight: '600',
-  },
-  summarySection: {
-    backgroundColor: '#fff',
-    padding: 20,
-    marginBottom: 10,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  summaryLabel: {
-    fontSize: 16,
-    color: '#666',
-  },
-  summaryValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#007AFF',
+    fontWeight: '700',
   },
   logsSection: {
-    backgroundColor: '#fff',
-    padding: 20,
-    marginBottom: 20,
+    backgroundColor: '#FFFFFF',
+    padding: 18,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#DDE7E1',
   },
   mealCategory: {
-    marginBottom: 20,
+    marginTop: 12,
+    marginBottom: 10,
   },
   categoryTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 17,
+    fontWeight: '800',
     marginBottom: 10,
-    color: '#333',
+    color: '#1D2B24',
+  },
+  emptyState: {
+    paddingVertical: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
   },
   emptyText: {
     textAlign: 'center',
-    color: '#999',
-    padding: 20,
+    color: '#7C8E85',
+    fontSize: 14,
   },
   logCard: {
-    backgroundColor: '#f9f9f9',
-    padding: 15,
-    borderRadius: 8,
+    backgroundColor: '#F8FBF9',
+    padding: 13,
+    borderRadius: 14,
     marginBottom: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: '#007AFF',
+    borderWidth: 1,
+    borderColor: '#E0EAE4',
+  },
+  logTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
   },
   logMealName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  logDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 5,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A2A22',
+    flex: 1,
+    marginRight: 8,
   },
   logCalories: {
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  logMacros: {
     fontSize: 14,
-    color: '#666',
+    color: '#0A7C52',
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  logMacroChips: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  logMacroChip: {
+    fontSize: 12,
+    color: '#4D6359',
+    backgroundColor: '#EDF4F0',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    fontWeight: '600',
   },
   logTime: {
     fontSize: 12,
-    color: '#999',
+    color: '#74877E',
+    fontWeight: '600',
   },
 });
