@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  ImageBackground,
   ScrollView,
   StyleSheet,
   Text,
@@ -237,182 +238,262 @@ export default function FoodScreen() {
     });
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={false}
+    <ImageBackground
+      source={require('../../assets/images/food-background.png')}
+      resizeMode="cover"
+      style={styles.screen}
+      imageStyle={styles.backgroundImage}
     >
-      <View style={styles.heroCard}>
-        <View style={styles.heroHeader}>
-          <View>
-            <Text style={styles.heroOverline}>TODAY</Text>
-            <Text style={styles.heroTitle}>Food Overview</Text>
-          </View>
-          <View style={styles.heroBadge}>
-            <Ionicons name="nutrition-outline" size={18} color="#0A7C52" />
-            <Text style={styles.heroBadgeText}>{foodLogs.length} meals</Text>
-          </View>
-        </View>
-
-        <View style={styles.heroMainStat}>
-          <Text style={styles.heroCalories}>{totalCalories}</Text>
-          <Text style={styles.heroCaloriesLabel}>kcal consumed</Text>
-        </View>
-
-        <View style={styles.macroPillsRow}>
-          <View style={[styles.macroPill, styles.proteinPill]}>
-            <Text style={styles.macroPillValue}>{totalProtein.toFixed(1)}g</Text>
-            <Text style={styles.macroPillLabel}>Protein</Text>
-          </View>
-          <View style={[styles.macroPill, styles.carbPill]}>
-            <Text style={styles.macroPillValue}>{totalCarbs.toFixed(1)}g</Text>
-            <Text style={styles.macroPillLabel}>Carbs</Text>
-          </View>
-          <View style={[styles.macroPill, styles.fatPill]}>
-            <Text style={styles.macroPillValue}>{totalFat.toFixed(1)}g</Text>
-            <Text style={styles.macroPillLabel}>Fat</Text>
-          </View>
-        </View>
+      <View pointerEvents="none" style={styles.photoTint} />
+      <View pointerEvents="none" style={styles.backgroundLayer}>
+        <View style={[styles.bgBlob, styles.bgBlobTomato]} />
+        <View style={[styles.bgBlob, styles.bgBlobAvocado]} />
+        <View style={[styles.bgBlob, styles.bgBlobCream]} />
+        <Text style={[styles.bgEmoji, styles.bgEmojiTopLeft]}>🥑</Text>
+        <Text style={[styles.bgEmoji, styles.bgEmojiTopRight]}>🍊</Text>
+        <Text style={[styles.bgEmoji, styles.bgEmojiBottomLeft]}>🥗</Text>
+        <Text style={[styles.bgEmoji, styles.bgEmojiBottomRight]}>🍓</Text>
       </View>
 
-      <View style={styles.formSection}>
-        <Text style={styles.sectionTitle}>Log a Meal</Text>
-        <Text style={styles.sectionSubtitle}>Snap a photo or enter nutrition details manually.</Text>
-        
-        {/* Camera Buttons */}
-        <View style={styles.cameraButtons}>
-          <TouchableOpacity 
-            style={styles.cameraButton}
-            onPress={takePicture}
-            disabled={analyzing}
-          >
-            <Ionicons name="camera" size={24} color="#fff" />
-            <Text style={styles.cameraButtonText}>Take Photo</Text>
-          </TouchableOpacity>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.heroCard}>
+          <View style={styles.heroHeader}>
+            <View>
+              <Text style={styles.heroOverline}>TODAY</Text>
+              <Text style={styles.heroTitle}>Food Overview</Text>
+            </View>
+            <View style={styles.heroBadge}>
+              <Ionicons name="nutrition-outline" size={18} color="#0A7C52" />
+              <Text style={styles.heroBadgeText}>{foodLogs.length} meals</Text>
+            </View>
+          </View>
+
+          <View style={styles.heroMainStat}>
+            <Text style={styles.heroCalories}>{totalCalories}</Text>
+            <Text style={styles.heroCaloriesLabel}>kcal consumed</Text>
+          </View>
+
+          <View style={styles.macroPillsRow}>
+            <View style={[styles.macroPill, styles.proteinPill]}>
+              <Text style={styles.macroPillValue}>{totalProtein.toFixed(1)}g</Text>
+              <Text style={styles.macroPillLabel}>Protein</Text>
+            </View>
+            <View style={[styles.macroPill, styles.carbPill]}>
+              <Text style={styles.macroPillValue}>{totalCarbs.toFixed(1)}g</Text>
+              <Text style={styles.macroPillLabel}>Carbs</Text>
+            </View>
+            <View style={[styles.macroPill, styles.fatPill]}>
+              <Text style={styles.macroPillValue}>{totalFat.toFixed(1)}g</Text>
+              <Text style={styles.macroPillLabel}>Fat</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.formSection}>
+          <Text style={styles.sectionTitle}>Log a Meal</Text>
+          <Text style={styles.sectionSubtitle}>Snap a photo or enter nutrition details manually.</Text>
           
-          <TouchableOpacity 
-            style={[styles.cameraButton, styles.galleryButton]}
-            onPress={pickImage}
-            disabled={analyzing}
+          {/* Camera Buttons */}
+          <View style={styles.cameraButtons}>
+            <TouchableOpacity 
+              style={styles.cameraButton}
+              onPress={takePicture}
+              disabled={analyzing}
+            >
+              <Ionicons name="camera" size={24} color="#fff" />
+              <Text style={styles.cameraButtonText}>Take Photo</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.cameraButton, styles.galleryButton]}
+              onPress={pickImage}
+              disabled={analyzing}
+            >
+              <Ionicons name="images" size={24} color="#fff" />
+              <Text style={styles.cameraButtonText}>Choose Photo</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Show selected image */}
+          {selectedImage && (
+            <Image source={{ uri: selectedImage }} style={styles.previewImage} />
+          )}
+
+          {/* Show analyzing indicator */}
+          {analyzing && (
+            <View style={styles.analyzingContainer}>
+              <ActivityIndicator size="large" color="#007AFF" />
+              <Text style={styles.analyzingText}>Analyzing food...</Text>
+            </View>
+          )}
+          
+          {/* Manual Entry Form */}
+          <Text style={styles.orText}>Or enter manually:</Text>
+          
+          <TextInput
+            style={styles.input}
+            placeholder="Meal name (e.g., Chicken Biryani)"
+            value={mealName}
+            onChangeText={setMealName}
+          />
+          
+          <TextInput
+            style={styles.input}
+            placeholder="Calories"
+            value={calories}
+            onChangeText={setCalories}
+            keyboardType="numeric"
+          />
+          
+          <View style={styles.row}>
+            <TextInput
+              style={[styles.input, styles.smallInput]}
+              placeholder="Protein (g)"
+              value={protein}
+              onChangeText={setProtein}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={[styles.input, styles.smallInput]}
+              placeholder="Carbs (g)"
+              value={carbs}
+              onChangeText={setCarbs}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={[styles.input, styles.smallInput]}
+              placeholder="Fat (g)"
+              value={fat}
+              onChangeText={setFat}
+              keyboardType="numeric"
+            />
+          </View>
+
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleSaveMeal}
+            disabled={loading}
           >
-            <Ionicons name="images" size={24} color="#fff" />
-            <Text style={styles.cameraButtonText}>Choose Photo</Text>
+            <Text style={styles.buttonText}>
+              {loading ? 'Saving...' : 'Log Meal'}
+            </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Show selected image */}
-        {selectedImage && (
-          <Image source={{ uri: selectedImage }} style={styles.previewImage} />
-        )}
+        <View style={styles.logsSection}>
+          <Text style={styles.sectionTitle}>Today&apos;s Meals</Text>
+          <Text style={styles.sectionSubtitle}>Grouped by meal time for quick scanning.</Text>
+          {refreshing ? (
+            <ActivityIndicator size="large" color="#0A7C52" />
+          ) : foodLogs.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="restaurant-outline" size={28} color="#93A09A" />
+              <Text style={styles.emptyText}>No meals logged yet today</Text>
+            </View>
+          ) : (
+            <>
+              {mealCategoryConfig.map((category) => {
+                const categoryMeals = groupedMeals[category.key];
+                if (categoryMeals.length === 0) return null;
 
-        {/* Show analyzing indicator */}
-        {analyzing && (
-          <View style={styles.analyzingContainer}>
-            <ActivityIndicator size="large" color="#007AFF" />
-            <Text style={styles.analyzingText}>Analyzing food...</Text>
-          </View>
-        )}
-        
-        {/* Manual Entry Form */}
-        <Text style={styles.orText}>Or enter manually:</Text>
-        
-        <TextInput
-          style={styles.input}
-          placeholder="Meal name (e.g., Chicken Biryani)"
-          value={mealName}
-          onChangeText={setMealName}
-        />
-        
-        <TextInput
-          style={styles.input}
-          placeholder="Calories"
-          value={calories}
-          onChangeText={setCalories}
-          keyboardType="numeric"
-        />
-        
-        <View style={styles.row}>
-          <TextInput
-            style={[styles.input, styles.smallInput]}
-            placeholder="Protein (g)"
-            value={protein}
-            onChangeText={setProtein}
-            keyboardType="numeric"
-          />
-          <TextInput
-            style={[styles.input, styles.smallInput]}
-            placeholder="Carbs (g)"
-            value={carbs}
-            onChangeText={setCarbs}
-            keyboardType="numeric"
-          />
-          <TextInput
-            style={[styles.input, styles.smallInput]}
-            placeholder="Fat (g)"
-            value={fat}
-            onChangeText={setFat}
-            keyboardType="numeric"
-          />
+                return (
+                  <View key={category.key} style={styles.mealCategory}>
+                    <Text style={styles.categoryTitle}>{category.emoji} {category.title}</Text>
+                    {categoryMeals.map((log) => (
+                      <View key={log.id} style={styles.logCard}>
+                        <View style={styles.logTopRow}>
+                          <Text style={styles.logMealName}>{log.meal_name}</Text>
+                          <Text style={styles.logTime}>{formatMealTime(log.meal_time)}</Text>
+                        </View>
+                        <Text style={styles.logCalories}>{log.calories} cal</Text>
+                        <View style={styles.logMacroChips}>
+                          <Text style={styles.logMacroChip}>P {log.protein}g</Text>
+                          <Text style={styles.logMacroChip}>C {log.carbs}g</Text>
+                          <Text style={styles.logMacroChip}>F {log.fat}g</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                );
+              })}
+            </>
+          )}
         </View>
-
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleSaveMeal}
-          disabled={loading}
-        >
-          <Text style={styles.buttonText}>
-            {loading ? 'Saving...' : 'Log Meal'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.logsSection}>
-        <Text style={styles.sectionTitle}>Today&apos;s Meals</Text>
-        <Text style={styles.sectionSubtitle}>Grouped by meal time for quick scanning.</Text>
-        {refreshing ? (
-          <ActivityIndicator size="large" color="#0A7C52" />
-        ) : foodLogs.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="restaurant-outline" size={28} color="#93A09A" />
-            <Text style={styles.emptyText}>No meals logged yet today</Text>
-          </View>
-        ) : (
-          <>
-            {mealCategoryConfig.map((category) => {
-              const categoryMeals = groupedMeals[category.key];
-              if (categoryMeals.length === 0) return null;
-
-              return (
-                <View key={category.key} style={styles.mealCategory}>
-                  <Text style={styles.categoryTitle}>{category.emoji} {category.title}</Text>
-                  {categoryMeals.map((log) => (
-                    <View key={log.id} style={styles.logCard}>
-                      <View style={styles.logTopRow}>
-                        <Text style={styles.logMealName}>{log.meal_name}</Text>
-                        <Text style={styles.logTime}>{formatMealTime(log.meal_time)}</Text>
-                      </View>
-                      <Text style={styles.logCalories}>{log.calories} cal</Text>
-                      <View style={styles.logMacroChips}>
-                        <Text style={styles.logMacroChip}>P {log.protein}g</Text>
-                        <Text style={styles.logMacroChip}>C {log.carbs}g</Text>
-                        <Text style={styles.logMacroChip}>F {log.fat}g</Text>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              );
-            })}
-          </>
-        )}
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#F7F2E8',
+  },
+  backgroundImage: {
+    opacity: 0.35,
+  },
+  photoTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#F9F3EA',
+    opacity: 0.7,
+  },
+  backgroundLayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  bgBlob: {
+    position: 'absolute',
+    borderRadius: 999,
+    opacity: 0.28,
+  },
+  bgBlobTomato: {
+    width: 320,
+    height: 320,
+    backgroundColor: '#FFC9A4',
+    top: -90,
+    right: -110,
+  },
+  bgBlobAvocado: {
+    width: 280,
+    height: 280,
+    backgroundColor: '#C8E8CC',
+    top: 240,
+    left: -140,
+  },
+  bgBlobCream: {
+    width: 340,
+    height: 340,
+    backgroundColor: '#FFEAB4',
+    bottom: -150,
+    right: -110,
+  },
+  bgEmoji: {
+    position: 'absolute',
+    fontSize: 24,
+    opacity: 0.14,
+  },
+  bgEmojiTopLeft: {
+    top: 84,
+    left: 28,
+  },
+  bgEmojiTopRight: {
+    top: 190,
+    right: 26,
+  },
+  bgEmojiBottomLeft: {
+    bottom: 188,
+    left: 30,
+  },
+  bgEmojiBottomRight: {
+    bottom: 62,
+    right: 28,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#EEF4F0',
+    backgroundColor: 'transparent',
   },
   contentContainer: {
     padding: 16,
