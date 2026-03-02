@@ -5,6 +5,7 @@
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
+    "test:supabase": "node ./scripts/test-supabase-connection.mjs",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",

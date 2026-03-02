@@ -28,6 +28,12 @@ interface FoodSummary {
   totalProtein: number;
 }
 
+interface ConnectionStatus {
+  type: 'idle' | 'success' | 'error';
+  message: string;
+  checkedAt: string | null;
+}
+
 const getLocalDayBounds = () => {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
@@ -48,6 +54,12 @@ export default function WorkoutScreen() {
   const [foodSummary, setFoodSummary] = useState<FoodSummary>({ totalCalories: 0, totalProtein: 0 });
   const [aiRecommendation, setAiRecommendation] = useState('');
   const [loadingRecommendation, setLoadingRecommendation] = useState(false);
+  const [checkingConnection, setCheckingConnection] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({
+    type: 'idle',
+    message: 'Not tested yet.',
+    checkedAt: null,
+  });
 
   const loadTodaysWorkouts = useCallback(async () => {
     setRefreshing(true);
@@ -160,6 +172,57 @@ export default function WorkoutScreen() {
     }
   };
 
+  const runSupabaseHealthCheck = async () => {
+    if (checkingConnection) return;
+
+    setCheckingConnection(true);
+
+    try {
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY');
+      }
+
+      const normalizedUrl = supabaseUrl.endsWith('/') ? supabaseUrl.slice(0, -1) : supabaseUrl;
+
+      const authResponse = await fetch(`${normalizedUrl}/auth/v1/settings`, {
+        headers: { apikey: supabaseAnonKey },
+      });
+
+      if (!authResponse.ok) {
+        throw new Error(`Auth endpoint error: ${authResponse.status} ${authResponse.statusText}`);
+      }
+
+      const restResponse = await fetch(`${normalizedUrl}/rest/v1/`, {
+        headers: {
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${supabaseAnonKey}`,
+        },
+      });
+
+      if (!restResponse.ok) {
+        throw new Error(`REST endpoint error: ${restResponse.status} ${restResponse.statusText}`);
+      }
+
+      setConnectionStatus({
+        type: 'success',
+        message: 'Supabase connection OK. Auth and REST endpoints are reachable.',
+        checkedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setConnectionStatus({
+        type: 'error',
+        message: `Connection failed: ${message}`,
+        checkedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      });
+    } finally {
+      setCheckingConnection(false);
+    }
+  };
+
   const totalSets = workoutLogs.reduce((sum, log) => sum + log.sets, 0);
   const totalVolume = workoutLogs.reduce((sum, log) => sum + (log.sets * log.reps * log.weight), 0);
 
@@ -199,6 +262,40 @@ export default function WorkoutScreen() {
             <Text style={styles.recommendationText}>{aiRecommendation}</Text>
           </View>
         )}
+      </View>
+
+      {/* Supabase Health Check */}
+      <View style={styles.healthSection}>
+        <View style={styles.cardHeader}>
+          <Ionicons name="cloud-done" size={24} color="#007AFF" />
+          <Text style={styles.cardTitle}>Supabase Health Check</Text>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.healthButton, checkingConnection && styles.buttonDisabled]}
+          onPress={runSupabaseHealthCheck}
+          disabled={checkingConnection}
+        >
+          <Text style={styles.healthButtonText}>
+            {checkingConnection ? 'Checking connection...' : 'Test Supabase Connection'}
+          </Text>
+        </TouchableOpacity>
+
+        <View
+          style={[
+            styles.healthStatusBox,
+            connectionStatus.type === 'success' && styles.healthStatusSuccess,
+            connectionStatus.type === 'error' && styles.healthStatusError,
+          ]}
+        >
+          <Text style={styles.healthStatusTitle}>
+            Status: {connectionStatus.type === 'idle' ? 'Idle' : connectionStatus.type === 'success' ? 'Healthy' : 'Failed'}
+          </Text>
+          <Text style={styles.healthStatusText}>{connectionStatus.message}</Text>
+          {connectionStatus.checkedAt && (
+            <Text style={styles.healthCheckedAt}>Last checked: {connectionStatus.checkedAt}</Text>
+          )}
+        </View>
       </View>
 
       {/* Log Workout Form */}
@@ -378,6 +475,53 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#555',
     lineHeight: 20,
+  },
+  healthSection: {
+    backgroundColor: '#fff',
+    padding: 20,
+    marginBottom: 10,
+  },
+  healthButton: {
+    backgroundColor: '#007AFF',
+    padding: 15,
+    borderRadius: 8,
+  },
+  healthButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  healthStatusBox: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  healthStatusSuccess: {
+    backgroundColor: '#ECFDF3',
+    borderColor: '#A7F3D0',
+  },
+  healthStatusError: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
+  healthStatusTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+    color: '#111827',
+  },
+  healthStatusText: {
+    fontSize: 14,
+    color: '#374151',
+  },
+  healthCheckedAt: {
+    marginTop: 6,
+    fontSize: 12,
+    color: '#6B7280',
   },
   formSection: {
     backgroundColor: '#fff',
