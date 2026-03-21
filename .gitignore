@@ -60,3 +60,4 @@ ml_model/metrics_summary.json
 ml_model/per_class_metrics.csv
 ml_model/confusion_matrix.csv
 ml_model/duplicates_removed.json
+learning/
