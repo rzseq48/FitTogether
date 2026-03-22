@@ -1,26 +1,11 @@
-import { Session } from '@supabase/supabase-js';
 import { Redirect } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
-import { supabase } from '../lib/supabase';
+import { AuthLoadingScreen, useAuth } from '../lib/auth';
 
 export default function Index() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
-  }, []);
+  const { loading, session } = useAuth();
 
   if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    return <AuthLoadingScreen />;
   }
 
   if (session) {

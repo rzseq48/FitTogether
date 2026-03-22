@@ -1,26 +1,19 @@
-import { Session } from '@supabase/supabase-js';
 import { Slot, useRouter, useSegments } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { useEffect } from 'react';
+import { AuthLoadingScreen, AuthProvider, useAuth } from '../lib/auth';
 
 export default function RootLayout() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  return (
+    <AuthProvider>
+      <AuthGate />
+    </AuthProvider>
+  );
+}
+
+function AuthGate() {
+  const { loading, session } = useAuth();
   const segments = useSegments();
   const router = useRouter();
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
 
   useEffect(() => {
     if (loading) return;
@@ -33,6 +26,10 @@ export default function RootLayout() {
       router.replace('/(tabs)/food');
     }
   }, [session, segments, loading, router]);
+
+  if (loading) {
+    return <AuthLoadingScreen />;
+  }
 
   return <Slot />;
 }
