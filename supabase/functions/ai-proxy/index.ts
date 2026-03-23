@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
+import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_MODEL = 'claude-3-haiku-20240307';
@@ -15,6 +16,54 @@ const json = (status: number, body: unknown) =>
     status,
     headers: { 'Content-Type': 'application/json' },
   });
+
+const getBearerToken = (authorizationHeader: string | null) => {
+  if (!authorizationHeader) return null;
+
+  const [scheme, token] = authorizationHeader.split(' ');
+  if (scheme?.toLowerCase() !== 'bearer' || !token) {
+    return null;
+  }
+
+  return token;
+};
+
+const authenticateRequest = async (req: Request) => {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('SUPABASE_URL or SUPABASE_ANON_KEY is not configured');
+  }
+
+  const accessToken = getBearerToken(req.headers.get('Authorization'));
+  if (!accessToken) {
+    return { error: json(401, { error: 'Missing or invalid Authorization header' }) };
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  });
+
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser(accessToken);
+
+  if (error || !user) {
+    return { error: json(401, { error: 'Unauthorized' }) };
+  }
+
+  return { user };
+};
 
 const anthropicRequest = async (apiKey: string, body: Record<string, unknown>) => {
   const response = await fetch(ANTHROPIC_API_URL, {
@@ -127,6 +176,13 @@ Keep it concise and actionable.`,
 serve(async (req) => {
   if (req.method !== 'POST') {
     return json(405, { error: 'Method not allowed' });
+  }
+
+  const authResult = await authenticateRequest(req).catch((error) => ({
+    error: json(500, { error: error instanceof Error ? error.message : 'Authentication setup failed' }),
+  }));
+  if (authResult.error) {
+    return authResult.error;
   }
 
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
