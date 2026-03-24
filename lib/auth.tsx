@@ -17,11 +17,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isMounted = true;
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!isMounted) return;
-      setSession(session);
-      setLoading(false);
-    });
+    const bootstrapSession = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!isMounted) return;
+        setSession(session);
+      } catch (error) {
+        console.error('Failed to restore auth session:', error);
+        if (!isMounted) return;
+        setSession(null);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    bootstrapSession();
 
     const {
       data: { subscription },
