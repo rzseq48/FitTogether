@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -113,6 +114,13 @@ export default function WorkoutScreen() {
     loadTodaysFood();
   }, [loadTodaysFood, loadTodaysWorkouts]);
 
+  useFocusEffect(
+    useCallback(() => {
+      loadTodaysWorkouts();
+      loadTodaysFood();
+    }, [loadTodaysFood, loadTodaysWorkouts])
+  );
+
   const getAIRecommendation = async () => {
     setLoadingRecommendation(true);
     
@@ -167,8 +175,9 @@ export default function WorkoutScreen() {
       setReps('');
       setWeight('');
       setNotes('');
-      // Reload workouts
+      // Reload workouts and nutrition context
       loadTodaysWorkouts();
+      loadTodaysFood();
     }
   };
 
