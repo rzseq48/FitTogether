@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -30,6 +31,14 @@ interface UserContext {
   recentWorkouts: string[];
 }
 
+const getLocalDayBounds = () => {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { startIso: start.toISOString(), endIso: end.toISOString() };
+};
+
 export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
@@ -37,31 +46,14 @@ export default function ChatScreen() {
   const [userContext, setUserContext] = useState<UserContext | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  useEffect(() => {
-    loadUserContext();
-    addWelcomeMessage();
-  }, []);
-
-  const addWelcomeMessage = () => {
-    const welcomeMessage: Message = {
-      id: Date.now().toString(),
-      role: 'assistant',
-      content: "👋 Hey! I'm your AI fitness coach. I can help you with:\n\n• Nutrition advice based on what you've eaten\n• Workout suggestions\n• Answer fitness questions\n• Analyze your progress\n\nWhat would you like to know?",
-      timestamp: new Date(),
-    };
-    setMessages([welcomeMessage]);
-  };
-
-  const loadUserContext = async () => {
+  const loadUserContext = React.useCallback(async (): Promise<UserContext | null> => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setUserContext(null);
+      return null;
+    }
 
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
-    const startIso = start.toISOString();
-    const endIso = end.toISOString();
+    const { startIso, endIso } = getLocalDayBounds();
 
     // Get today's food
     const { data: foodData } = await supabase
@@ -93,15 +85,37 @@ export default function ChatScreen() {
     };
 
     setUserContext(context);
+    return context;
+  }, []);
+
+  useEffect(() => {
+    addWelcomeMessage();
+  }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadUserContext();
+    }, [loadUserContext])
+  );
+
+  const addWelcomeMessage = () => {
+    const welcomeMessage: Message = {
+      id: Date.now().toString(),
+      role: 'assistant',
+      content: "👋 Hey! I'm your AI fitness coach. I can help you with:\n\n• Nutrition advice based on what you've eaten\n• Workout suggestions\n• Answer fitness questions\n• Analyze your progress\n\nWhat would you like to know?",
+      timestamp: new Date(),
+    };
+    setMessages([welcomeMessage]);
   };
 
   const sendMessage = async () => {
     if (!inputText.trim() || loading) return;
+    const messageText = inputText.trim();
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: inputText.trim(),
+      content: messageText,
       timestamp: new Date(),
     };
 
@@ -110,7 +124,11 @@ export default function ChatScreen() {
     setLoading(true);
 
     try {
-      const aiReply = await getCoachReply(inputText.trim(), userContext);
+      const latestUserContext = await loadUserContext().catch((error) => {
+        console.error('Failed to refresh chat context:', error);
+        return userContext;
+      });
+      const aiReply = await getCoachReply(messageText, latestUserContext);
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
