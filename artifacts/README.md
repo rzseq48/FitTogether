@@ -7,6 +7,7 @@ Examples of files that belong here:
 - model evaluation reports
 - exported logs or audit notes
 - screenshots or packaged deliverables
+- update iteration showcases in `update-iterations/`
 
 Guidelines:
 - keep source code outside this folder
