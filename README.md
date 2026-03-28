@@ -25,6 +25,7 @@ A mobile fitness and nutrition tracking app powered by AI. Snap a photo of your 
 | Backend / DB | [Supabase](https://supabase.com) |
 | ML Model | PyTorch (custom-trained food classifier) |
 | Inference | Python (`scripts/ml/infer.py`) |
+| AI Coach Orchestration | LangChain (`ai-coach-langchain/`) |
 
 ---
 
@@ -156,6 +157,7 @@ FitTogether/
 ├── hooks/                    # Custom React hooks
 ├── lib/
 │   └── supabase.ts           # Supabase client setup
+├── ai-coach-langchain/       # Standalone LangChain AI coach workspace
 ├── scripts/
 │   └── ml/                   # ML training & inference pipeline
 │       ├── main.py           # Training entry point

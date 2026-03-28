@@ -1,0 +1,20 @@
+{
+  "name": "ai-coach-langchain",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/example.ts"
+  },
+  "dependencies": {
+    "@langchain/anthropic": "^0.3.14",
+    "@langchain/core": "^0.3.58",
+    "langchain": "^0.3.25",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.3",
+    "typescript": "^5.9.2"
+  }
+}

@@ -16,6 +16,7 @@
     "expo-env.d.ts"
   ],
   "exclude": [
-    "supabase/functions/**"
+    "supabase/functions/**",
+    "ai-coach-langchain/**"
   ]
 }
